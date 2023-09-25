@@ -383,7 +383,7 @@ public abstract class Client {
                 System.out.println("-Book Room: " + arguments.elementAt(arguments.size() - 1));
 
                 int id = toInt(arguments.elementAt(1));
-                int customerID = toInt(arguments.elementAt(2));
+                int customerID = toInt(arguments.elementAt(1));
                 Vector<String> flightNumbers = new Vector<String>();
                 for (int i = 0; i < arguments.size() - 6; ++i) {
                     flightNumbers.addElement(arguments.elementAt(3 + i));
