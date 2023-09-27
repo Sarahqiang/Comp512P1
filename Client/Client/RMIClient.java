@@ -31,9 +31,9 @@ public class RMIClient extends Client {
         }
 
         // Set the security policy
-        if (System.getSecurityManager() == null) {
-            System.setSecurityManager(new SecurityManager());
-        }
+//        if (System.getSecurityManager() == null) {
+//            System.setSecurityManager(new SecurityManager());
+//        }
 
         // Get a reference to the RMIRegister
         try {
