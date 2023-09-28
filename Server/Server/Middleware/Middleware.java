@@ -9,17 +9,18 @@ import java.util.*;
 
 public class Middleware extends ResourceManager implements IResourceManager {
 
-    private HashMap<Integer, Customer> customers;
+//    FlightResourceManager flightManager = new FlightResourceManager("FlightResourceManager");
+//    CarResourceManager carManager = new CarResourceManager("CarResourceManager");
+//    RoomResourceManager roomManager = new RoomResourceManager("RoomResourceManager");
+
+//    private HashMap<Integer, Customer> customers;
     private FlightResourceManager flightManager;
     private CarResourceManager carManager;
     private RoomResourceManager roomManager;
 
-    public Middleware(FlightResourceManager flightRM, CarResourceManager carRM, RoomResourceManager roomRM, String name) {
+    public Middleware(String name) {
         super(name);
-        this.flightManager = flightRM;
-        this.carManager = carRM;
-        this.roomManager = roomRM;
-        this.customers = new HashMap<>();
+//        this.customers = new HashMap<>();
     }
 
 
@@ -35,7 +36,7 @@ public class Middleware extends ResourceManager implements IResourceManager {
 
     @Override
     public boolean addRooms(int id, String location, int numRooms, int price) throws RemoteException {
-        return roomManager.addCars(id, location, numRooms, price);
+        return roomManager.addRooms(id, location, numRooms, price);
     }
 
     @Override
@@ -179,7 +180,40 @@ public class Middleware extends ResourceManager implements IResourceManager {
 
     @Override
     public boolean bundle(int id, int customerID, Vector<String> flightNumbers, String location, boolean car, boolean room) throws RemoteException {
-        return false;
+        Trace.info("Middleware::bundle(" + id + ", " + customerID + ", " + flightNumbers + ", " + location + ", " + car + ", " + room + ") called");
+
+        Customer customer = (Customer) readData(id, Customer.getKey(customerID));
+
+        if (customer == null) {
+            Trace.warn("Middleware::bundle(" + id + ", " + customerID + ")  failed--customer doesn't exist");
+            return false;
+        }
+
+        boolean success = true;
+
+        // Reserve all flights
+        for (String flightNumber : flightNumbers) {
+            success &= flightManager.reserveFlight(id, customerID, Integer.parseInt(flightNumber));
+        }
+
+        // Reserve car if requested
+        if (car) {
+            success &= carManager.reserveCar(id, customerID, location);
+        }
+
+        // Reserve room if requested
+        if (room) {
+            success &= roomManager.reserveRoom(id, customerID, location);
+        }
+
+        if (!success) {
+            Trace.warn("Middleware::bundle(" + id + ", " + customerID + ", " + flightNumbers + ", " + location + ", " + car + ", " + room + ") failed");
+        } else {
+            Trace.info("Middleware::bundle(" + id + ", " + customerID + ", " + flightNumbers + ", " + location + ", " + car + ", " + room + ") succeeded");
+        }
+
+
+        return success;
     }
 
     @Override
