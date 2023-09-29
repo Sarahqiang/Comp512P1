@@ -1,0 +1,3 @@
+grant codebase "file:/Users/rl/Downloads/COMP512P1/Comp512P1/Server/" {
+permission java.security.AllPermission;
+};

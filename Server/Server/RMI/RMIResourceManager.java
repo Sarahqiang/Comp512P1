@@ -63,9 +63,9 @@ public class RMIResourceManager extends ResourceManager {
         }
 
         // Create and install a security manager
-        if (System.getSecurityManager() == null) {
-            System.setSecurityManager(new SecurityManager());
-        }
+//        if (System.getSecurityManager() == null) {
+//            System.setSecurityManager(new SecurityManager());
+//        }
     }
 
     public RMIResourceManager(String name) {

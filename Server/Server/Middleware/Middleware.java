@@ -13,7 +13,7 @@ public class Middleware extends ResourceManager implements IResourceManager {
 //    CarResourceManager carManager = new CarResourceManager("CarResourceManager");
 //    RoomResourceManager roomManager = new RoomResourceManager("RoomResourceManager");
 
-//    private HashMap<Integer, Customer> customers;
+    //    private HashMap<Integer, Customer> customers;
     private FlightResourceManager flightManager;
     private CarResourceManager carManager;
     private RoomResourceManager roomManager;
@@ -21,6 +21,18 @@ public class Middleware extends ResourceManager implements IResourceManager {
     public Middleware(String name) {
         super(name);
 //        this.customers = new HashMap<>();
+    }
+
+    public void setFlightManager(FlightResourceManager RM) {
+        this.flightManager = RM;
+    }
+
+    public void setCarManager(CarResourceManager RM) {
+        this.carManager = RM;
+    }
+
+    public void setRoomManager(RoomResourceManager RM) {
+        this.roomManager = RM;
     }
 
 

@@ -57,12 +57,18 @@ public class RMIMiddleware extends Middleware {
         }
 
         // Create and install a security manager
-        if (System.getSecurityManager() == null) {
-            System.setSecurityManager(new SecurityManager());
-        }
+//        if (System.getSecurityManager() == null) {
+//            System.setSecurityManager(new SecurityManager());
+//        }
     }
 
     public RMIMiddleware(String name) {
         super(name);
+        FlightResourceManager flightManager = new FlightResourceManager(s_serverName + "_Flight");
+        CarResourceManager carManager = new CarResourceManager(s_serverName + "_Car");
+        RoomResourceManager roomManager = new RoomResourceManager(s_serverName + "_Room");
+        this.setCarManager(carManager);
+        this.setFlightManager(flightManager);
+        this.setRoomManager(roomManager);
     }
 }
