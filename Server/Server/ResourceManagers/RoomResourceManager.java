@@ -92,6 +92,6 @@ public class RoomResourceManager extends ResourceManager {
 
     @Override
     public String getName() throws RemoteException {
-        return null;
+        return m_name;
     }
 }

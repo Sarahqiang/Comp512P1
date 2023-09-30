@@ -14,19 +14,30 @@ public class RMIMiddleware extends Middleware {
     private static String s_serverName = "Middleware";
     private static String s_rmiPrefix = "group_17";
 
-
     public static void main(String args[]) {
-        if (args.length > 0) {
-            s_serverName = args[0];
+        if (args.length < 2) {
+            System.err.println("Not enough arguments. Need <FlightManagerHost> <CarManagerHost> <RoomManagerHost>");
+            System.exit(1);
         }
+
+        String flightManagerHost = args[0];
+        String[] flight_info = flightManagerHost.split(",");
+        String carManagerHost = args[1];
+        String[] car_info = carManagerHost.split(",");
+        String roomManagerHost = args[2];
+        String[] room_info = roomManagerHost.split(",");
 
         // Create the RMI server entry
         try {
             // Create a new Middleware object
-            RMIMiddleware server = new RMIMiddleware(s_serverName);
+            RMIMiddleware middleware = new RMIMiddleware(s_serverName);
+
+            middleware.initializeManagers("f", "localhost", Integer.parseInt(flight_info[1]), s_rmiPrefix + flight_info[0]);
+            middleware.initializeManagers("c", "localhost", Integer.parseInt(car_info[1]), s_rmiPrefix + car_info[0]);
+            middleware.initializeManagers("r", "localhost", Integer.parseInt(room_info[1]), s_rmiPrefix + room_info[0]);
 
             // Dynamically generate the stub (client proxy)
-            IResourceManager resourceManager = (IResourceManager) UnicastRemoteObject.exportObject(server, 0);
+            IResourceManager resourceManager = (IResourceManager) UnicastRemoteObject.exportObject(middleware, 0);
 
             // Bind the remote object's stub in the registry
             Registry l_registry;
@@ -64,11 +75,5 @@ public class RMIMiddleware extends Middleware {
 
     public RMIMiddleware(String name) {
         super(name);
-        FlightResourceManager flightManager = new FlightResourceManager(s_serverName + "_Flight");
-        CarResourceManager carManager = new CarResourceManager(s_serverName + "_Car");
-        RoomResourceManager roomManager = new RoomResourceManager(s_serverName + "_Room");
-        this.setCarManager(carManager);
-        this.setFlightManager(flightManager);
-        this.setRoomManager(roomManager);
     }
 }

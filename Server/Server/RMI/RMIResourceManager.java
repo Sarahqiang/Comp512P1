@@ -20,10 +20,12 @@ public class RMIResourceManager extends ResourceManager {
     private static String s_serverName = "Server";
     //TODO: ADD YOUR GROUP NUMBER TO COMPLETE
     private static String s_rmiPrefix = "group_17";
+    private static int port = 3017;
 
     public static void main(String args[]) {
         if (args.length > 0) {
             s_serverName = args[0];
+            port = Integer.parseInt(args[1]);
         }
 
         // Create the RMI server entry
@@ -37,9 +39,9 @@ public class RMIResourceManager extends ResourceManager {
             // Bind the remote object's stub in the registry
             Registry l_registry;
             try {
-                l_registry = LocateRegistry.createRegistry(3017);
+                l_registry = LocateRegistry.createRegistry(port);
             } catch (RemoteException e) {
-                l_registry = LocateRegistry.getRegistry(3017);
+                l_registry = LocateRegistry.getRegistry(port);
             }
             final Registry registry = l_registry;
             registry.rebind(s_rmiPrefix + s_serverName, resourceManager);

@@ -1,84 +1,85 @@
 package Server.Middleware;
 
 import Server.Common.*;
+
+import java.net.MalformedURLException;
+import java.rmi.ConnectException;
+import java.rmi.Naming;
+
 import Server.Interface.*;
 import Server.ResourceManagers.*;
 
+import java.rmi.NotBoundException;
 import java.rmi.RemoteException;
+import java.rmi.registry.LocateRegistry;
+import java.rmi.registry.Registry;
 import java.util.*;
 
-public class Middleware extends ResourceManager implements IResourceManager {
 
-//    FlightResourceManager flightManager = new FlightResourceManager("FlightResourceManager");
-//    CarResourceManager carManager = new CarResourceManager("CarResourceManager");
-//    RoomResourceManager roomManager = new RoomResourceManager("RoomResourceManager");
+public class Middleware extends ResourceManager {
 
     //    private HashMap<Integer, Customer> customers;
-    private FlightResourceManager flightManager;
-    private CarResourceManager carManager;
-    private RoomResourceManager roomManager;
+    protected IResourceManager flightManager;
+    protected IResourceManager carManager;
+    protected IResourceManager roomManager;
+
+    protected String flightRM_name;
+    protected int flightRM_port;
+    protected String carRM_name;
+    protected int carRM_port;
+    protected String roomRM_name;
+    protected int roomRM_port;
 
     public Middleware(String name) {
         super(name);
-//        this.customers = new HashMap<>();
-    }
-
-    public void setFlightManager(FlightResourceManager RM) {
-        this.flightManager = RM;
-    }
-
-    public void setCarManager(CarResourceManager RM) {
-        this.carManager = RM;
-    }
-
-    public void setRoomManager(RoomResourceManager RM) {
-        this.roomManager = RM;
     }
 
 
     @Override
     public boolean addFlight(int id, int flightNum, int flightSeats, int flightPrice) throws RemoteException {
-        return flightManager.addFlight(id, flightNum, flightSeats, flightPrice);
+        synchronized (flightManager) {
+            return flightManager.addFlight(id, flightNum, flightSeats, flightPrice);
+        }
     }
 
     @Override
     public boolean addCars(int id, String location, int numCars, int price) throws RemoteException {
-        return carManager.addCars(id, location, numCars, price);
+        synchronized (carManager) {
+            return carManager.addCars(id, location, numCars, price);
+        }
     }
 
     @Override
     public boolean addRooms(int id, String location, int numRooms, int price) throws RemoteException {
-        return roomManager.addRooms(id, location, numRooms, price);
+        synchronized (roomManager) {
+            try {
+                return roomManager.addRooms(id, location, numRooms, price);
+            } catch (ConnectException e) {
+                initializeManagers("r", "localhost", this.roomRM_port, this.roomRM_name);
+                return roomManager.addRooms(id, location, numRooms, price);
+            }
+        }
     }
 
     @Override
     public int newCustomer(int xid) throws RemoteException {
-        Trace.info("Middleware::newCustomer(" + xid + ") called");
-        // Generate a globally unique ID for the new customer
-        int cid = Integer.parseInt(String.valueOf(xid) +
-                String.valueOf(Calendar.getInstance().get(Calendar.MILLISECOND)) +
-                String.valueOf(Math.round(Math.random() * 100 + 1)));
-        Customer customer = new Customer(cid);
-        writeData(xid, customer.getKey(), customer);
-        Trace.info("Middleware::newCustomer(" + cid + ") returns ID=" + cid);
+        int cid = super.newCustomer(xid);
+        flightManager.newCustomer(xid, cid);
+        carManager.newCustomer(xid, cid);
+        roomManager.newCustomer(xid, cid);
+
         return cid;
     }
 
-
     @Override
     public boolean newCustomer(int xid, int customerID) throws RemoteException {
-        Trace.info("Middleware::newCustomer(" + xid + ", " + customerID + ") called");
-
-        Customer customer = (Customer) readData(xid, Customer.getKey(customerID));
-        if (customer == null) {
-            customer = new Customer(customerID);
-            writeData(xid, customer.getKey(), customer);
-            Trace.info("Middleware::newCustomer(" + xid + ", " + customerID + ") created a new customer");
-            return true;
-        } else {
-            Trace.info("INFO: Middleware::newCustomer(" + xid + ", " + customerID + ") failed--customer already exists");
-            return false;
+        boolean isSuccess = super.newCustomer(xid, customerID);
+        if(isSuccess) {
+            flightManager.newCustomer(xid, customerID);
+            carManager.newCustomer(xid, customerID);
+            roomManager.newCustomer(xid, customerID);
         }
+        return isSuccess;
     }
 
 
@@ -132,17 +133,23 @@ public class Middleware extends ResourceManager implements IResourceManager {
 
     @Override
     public boolean deleteFlight(int id, int flightNum) throws RemoteException {
-        return flightManager.deleteFlight(id, flightNum);
+        synchronized (flightManager) {
+            return flightManager.deleteFlight(id, flightNum);
+        }
     }
 
     @Override
     public boolean deleteCars(int id, String location) throws RemoteException {
-        return carManager.deleteCars(id, location);
+        synchronized (carManager) {
+            return carManager.deleteCars(id, location);
+        }
     }
 
     @Override
     public boolean deleteRooms(int id, String location) throws RemoteException {
-        return roomManager.deleteRooms(id, location);
+        synchronized (roomManager) {
+            return roomManager.deleteRooms(id, location);
+        }
     }
 
     @Override
@@ -157,7 +164,12 @@ public class Middleware extends ResourceManager implements IResourceManager {
 
     @Override
     public int queryRooms(int id, String location) throws RemoteException {
-        return roomManager.queryRooms(id, location);
+        try {
+            return roomManager.queryRooms(id, location);
+        } catch (ConnectException e) {
+            initializeManagers("r", "localhost", this.roomRM_port, this.roomRM_name);
+            return roomManager.queryRooms(id, location);
+        }
     }
 
     @Override
@@ -186,8 +198,42 @@ public class Middleware extends ResourceManager implements IResourceManager {
     }
 
     @Override
-    public boolean reserveRoom(int id, int customerID, String location) throws RemoteException {
-        return roomManager.reserveRoom(id, customerID, location);
+    public boolean reserveRoom(int xid, int customerID, String location) throws RemoteException {
+        System.out.println(super.queryRooms(xid, location));
+        String key = Room.getKey(location);
+
+        Trace.info("Middleware::reserveItem(" + xid + ", customer=" + customerID + ", " + key + ", " + location + ") called");
+        // Read customer object if it exists (and read lock it)
+        Customer customer = (Customer) readData(xid, Customer.getKey(customerID));
+
+        if (customer == null) {
+            Trace.warn("Middleware::reserveItem(" + xid + ", " + customerID + ", " + key + ", " + location + ")  failed--customer doesn't exist");
+            return false;
+        }
+
+        synchronized (customer) {
+            synchronized (roomManager) {
+                System.out.println("Middleware is sending a query to roomRM with key: " + key);
+                boolean checkAvail = roomManager.checkForAvail(xid, key);
+
+                if (!checkAvail) {
+                    Trace.warn("RM::reserveItem(" + xid + ", " + customerID + ", " + key + ", " + location + ") failed--item is not available");
+                } else {
+//                    System.out.println("pass the condition");
+                    if (roomManager.reserveRoom(xid, customerID, location)) {
+                        int price = roomManager.queryRoomsPrice(xid, key);
+                        customer.reserve(key, location, price);
+                        writeData(xid, customer.getKey(), customer);
+                        Trace.info("Middleware::reserveItem(" + xid + ", " + customerID + ", " + key + ", " + location + ") succeeded");
+                        return true;
+                    }
+
+                    return false;
+                }
+            }
+        }
+        return false;
+
     }
 
     @Override
@@ -232,4 +278,44 @@ public class Middleware extends ResourceManager implements IResourceManager {
     public String getName() throws RemoteException {
         return "Middleware";
     }
+
+//    public void initializeManagers(String flightManagerHost, String carManagerHost, String roomManagerHost) throws RemoteException, MalformedURLException, NotBoundException {
+//        // Assuming you are using RMI to connect, the code could be something like this
+//        flightManager = (IResourceManager) Naming.lookup("//" + flightManagerHost + "/FlightResourceManager");
+//        carManager = (IResourceManager) Naming.lookup("//" + carManagerHost + "/CarResourceManager");
+//        roomManager = (IResourceManager) Naming.lookup("//" + roomManagerHost + "/RoomResourceManager");
+//    }
+
+    public void initializeManagers(String cat, String host, int port, String name) {
+//        while (true) {
+        try {
+            Registry registry = LocateRegistry.getRegistry(host, port);
+
+//                Registry flightRegistry = LocateRegistry.getRegistry(flightManagerHost, flight_port);
+            if (cat.equals("f")) {
+                this.flightManager = (IResourceManager) registry.lookup(name);
+                this.flightRM_name = name;
+                this.flightRM_port = port;
+            }
+            if (cat.equals("c")) {
+                this.carManager = (IResourceManager) registry.lookup(name);
+                this.carRM_name = name;
+                this.carRM_port = port;
+            }
+            if (cat.equals("r")) {
+                this.roomManager = (IResourceManager) registry.lookup(name);
+                this.roomRM_name = name;
+                this.roomRM_port = port;
+            }
+
+            System.out.println("Connected to " + name);
+
+        } catch (Exception e) {
+            System.err.println((char) 27 + "[31;1mMiddleware exception: " + (char) 27 + "[0mUncaught exception");
+            e.printStackTrace();
+        }
+//        }
+    }
+
+
 }
