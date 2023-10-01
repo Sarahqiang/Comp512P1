@@ -18,7 +18,7 @@ import java.util.*;
 
 public class Middleware extends ResourceManager {
 
-    //    private HashMap<Integer, Customer> customers;
+    //    protected HashMap<Integer, Customer> customers;
     protected IResourceManager flightManager;
     protected IResourceManager carManager;
     protected IResourceManager roomManager;
@@ -32,6 +32,7 @@ public class Middleware extends ResourceManager {
 
     public Middleware(String name) {
         super(name);
+//        this.customers = new HashMap<>();
     }
 
 
@@ -74,14 +75,13 @@ public class Middleware extends ResourceManager {
     @Override
     public boolean newCustomer(int xid, int customerID) throws RemoteException {
         boolean isSuccess = super.newCustomer(xid, customerID);
-        if(isSuccess) {
+        if (isSuccess) {
             flightManager.newCustomer(xid, customerID);
             carManager.newCustomer(xid, customerID);
             roomManager.newCustomer(xid, customerID);
         }
         return isSuccess;
     }
-
 
     @Override
     public boolean deleteCustomer(int xid, int customerID) throws RemoteException {
@@ -126,6 +126,8 @@ public class Middleware extends ResourceManager {
         } else {
             Trace.info("Middleware::queryCustomerInfo(" + xid + ", " + customerID + ")");
             System.out.println(customer.getBill());
+
+            System.out.println(m_data.toString());
             return customer.getBill();
         }
     }
@@ -286,7 +288,7 @@ public class Middleware extends ResourceManager {
 //        roomManager = (IResourceManager) Naming.lookup("//" + roomManagerHost + "/RoomResourceManager");
 //    }
 
-    public void initializeManagers(String cat, String host, int port, String name) {
+    protected void initializeManagers(String cat, String host, int port, String name) {
 //        while (true) {
         try {
             Registry registry = LocateRegistry.getRegistry(host, port);

@@ -32,9 +32,10 @@ public class RMIMiddleware extends Middleware {
             // Create a new Middleware object
             RMIMiddleware middleware = new RMIMiddleware(s_serverName);
 
-            middleware.initializeManagers("f", "localhost", Integer.parseInt(flight_info[1]), s_rmiPrefix + flight_info[0]);
-            middleware.initializeManagers("c", "localhost", Integer.parseInt(car_info[1]), s_rmiPrefix + car_info[0]);
-            middleware.initializeManagers("r", "localhost", Integer.parseInt(room_info[1]), s_rmiPrefix + room_info[0]);
+            middleware.initializeRMs(flight_info, car_info, room_info);
+//            initializeManagers("f", "localhost", Integer.parseInt(flight_info[1]), s_rmiPrefix + flight_info[0]);
+//            initializeManagers("c", "localhost", Integer.parseInt(car_info[1]), s_rmiPrefix + car_info[0]);
+//            initializeManagers("r", "localhost", Integer.parseInt(room_info[1]), s_rmiPrefix + room_info[0]);
 
             // Dynamically generate the stub (client proxy)
             IResourceManager resourceManager = (IResourceManager) UnicastRemoteObject.exportObject(middleware, 0);
@@ -75,5 +76,11 @@ public class RMIMiddleware extends Middleware {
 
     public RMIMiddleware(String name) {
         super(name);
+    }
+
+    public void initializeRMs(String[] flight_info, String[] car_info, String[] room_info) {
+        initializeManagers("f", "localhost", Integer.parseInt(flight_info[1]), s_rmiPrefix + flight_info[0]);
+        initializeManagers("c", "localhost", Integer.parseInt(car_info[1]), s_rmiPrefix + car_info[0]);
+        initializeManagers("r", "localhost", Integer.parseInt(room_info[1]), s_rmiPrefix + room_info[0]);
     }
 }
