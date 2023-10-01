@@ -9,7 +9,6 @@ import Server.Interface.*;
 
 import java.util.*;
 import java.rmi.RemoteException;
-import java.io.*;
 
 public class ResourceManager implements IResourceManager {
     protected String m_name = "";
@@ -64,10 +63,22 @@ public class ResourceManager implements IResourceManager {
         }
     }
 
+    public void cancelReservation(int xid, String key, int amount) {
+        Trace.info("RM::cancelReservation(" + xid + ", " + key + ", " + amount + ") called");
+        ReservableItem curObj = (ReservableItem) readData(xid, key);
+
+        curObj.setReserved(curObj.getReserved() - amount);
+        curObj.setCount(curObj.getCount() + amount);
+//        System.out.println("new count is " + curObj.getCount() + amount);
+
+        writeData(xid, curObj.getKey(), curObj);
+        Trace.info("RM::cancelReservation(" + xid + ", " + key + ", " + amount + ") item canceled reservation");
+    }
+
     // Query the number of available seats/rooms/cars
     protected int queryNum(int xid, String key) {
-        System.out.println("RM received a query with key: " + key);
-        System.out.println(m_data.toString());
+        System.out.println("RM queryNum received a query with key: " + key);
+//        System.out.println(m_data.toString());
 
         Trace.info("RM::queryNum(" + xid + ", " + key + ") called");
         ReservableItem curObj = (ReservableItem) readData(xid, key);
@@ -81,7 +92,7 @@ public class ResourceManager implements IResourceManager {
 
     // Query the price of an item
     protected int queryPrice(int xid, String key) {
-        System.out.println("RM received a query with key: " + key);
+        System.out.println("RM queryNum received a query with key: " + key);
 
         Trace.info("RM::queryPrice(" + xid + ", " + key + ") called");
         ReservableItem curObj = (ReservableItem) readData(xid, key);
@@ -183,6 +194,7 @@ public class ResourceManager implements IResourceManager {
             // Add count to existing object and update price if greater than zero
             curObj.setCount(curObj.getCount() + count);
             if (price > 0) {
+                System.out.println("price is" + price);
                 curObj.setPrice(price);
             }
             writeData(xid, curObj.getKey(), curObj);
@@ -328,18 +340,18 @@ public class ResourceManager implements IResourceManager {
         return m_name;
     }
 
-    public boolean checkForAvail(int xid, String key) throws RemoteException {
+    public int checkForAvail(int xid, String key) throws RemoteException {
         // Check if the item is available
         ReservableItem item = (ReservableItem) readData(xid, key);
         if (item == null) {
             Trace.warn("RM::reserveItem(" + xid + ", " + key + ") failed--item doesn't exist");
-            return false;
+            return -1;
         } else if (item.getCount() == 0) {
             Trace.warn("RM::reserveItem(" + xid + ", " + key + ") failed--Not enough items");
-            return false;
+            return -1;
+        } else {
+            return queryPrice(xid, key);
         }
-
-        return true;
     }
 
 }

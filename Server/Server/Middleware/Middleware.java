@@ -53,12 +53,7 @@ public class Middleware extends ResourceManager {
     @Override
     public boolean addRooms(int id, String location, int numRooms, int price) throws RemoteException {
         synchronized (roomManager) {
-            try {
-                return roomManager.addRooms(id, location, numRooms, price);
-            } catch (ConnectException e) {
-                initializeManagers("r", "localhost", this.roomRM_port, this.roomRM_name);
-                return roomManager.addRooms(id, location, numRooms, price);
-            }
+            return roomManager.addRooms(id, location, numRooms, price);
         }
     }
 
@@ -95,15 +90,19 @@ public class Middleware extends ResourceManager {
             RMHashMap reservations = customer.getReservations();
             for (String reservedKey : reservations.keySet()) {
                 ReservedItem reserveditem = customer.getReservedItem(reservedKey);
+                int amount = reserveditem.getCount();
                 Trace.info("Middleware::deleteCustomer(" + xid + ", " + customerID + ") has reserved " + reserveditem.getKey() + " " + reserveditem.getCount() + " times");
 
                 // Delegate to the appropriate ResourceManager based on the reservedKey
                 if (reservedKey.startsWith("flight-")) {
-                    flightManager.deleteFlight(xid, Integer.parseInt(reservedKey.substring(7)));
+                    flightManager.cancelReservation(xid, reservedKey, amount);
+//                    flightManager.deleteFlight(xid, Integer.parseInt(reservedKey.substring(7)));
                 } else if (reservedKey.startsWith("car-")) {
-                    carManager.deleteCars(xid, reservedKey.substring(4));
+                    carManager.cancelReservation(xid, reservedKey, amount);
+//                    carManager.deleteCars(xid, reservedKey.substring(4));
                 } else if (reservedKey.startsWith("room-")) {
-                    roomManager.deleteRooms(xid, reservedKey.substring(5));
+                    roomManager.cancelReservation(xid, reservedKey, amount);
+//                    roomManager.deleteRooms(xid, reservedKey.substring(5));
                 }
             }
 
@@ -127,7 +126,7 @@ public class Middleware extends ResourceManager {
             Trace.info("Middleware::queryCustomerInfo(" + xid + ", " + customerID + ")");
             System.out.println(customer.getBill());
 
-            System.out.println(m_data.toString());
+//            System.out.println(m_data.toString());
             return customer.getBill();
         }
     }
@@ -166,12 +165,7 @@ public class Middleware extends ResourceManager {
 
     @Override
     public int queryRooms(int id, String location) throws RemoteException {
-        try {
-            return roomManager.queryRooms(id, location);
-        } catch (ConnectException e) {
-            initializeManagers("r", "localhost", this.roomRM_port, this.roomRM_name);
-            return roomManager.queryRooms(id, location);
-        }
+        return roomManager.queryRooms(id, location);
     }
 
     @Override
@@ -190,18 +184,83 @@ public class Middleware extends ResourceManager {
     }
 
     @Override
-    public boolean reserveFlight(int id, int customerID, int flightNumber) throws RemoteException {
-        return flightManager.reserveFlight(id, customerID, flightNumber);
+    public boolean reserveFlight(int xid, int customerID, int flightNumber) throws RemoteException {
+        String key = Flight.getKey(flightNumber);
+
+        Trace.info("Middleware::reserveItem(" + xid + ", customer=" + customerID + ", " + key + ", " + flightNumber + ") called");
+        // Read customer object if it exists (and read lock it)
+        Customer customer = (Customer) readData(xid, Customer.getKey(customerID));
+
+        if (customer == null) {
+            Trace.warn("Middleware::reserveItem(" + xid + ", " + customerID + ", " + key + ", " + flightNumber + ")  failed--customer doesn't exist");
+            return false;
+        }
+
+        synchronized (customer) {
+            synchronized (flightManager) {
+//                System.out.println("Middleware is sending a query to roomRM with key: " + key);
+                int checkAvail = flightManager.checkForAvail(xid, key);
+
+                if (checkAvail == -1) {
+                    Trace.warn("RM::reserveItem(" + xid + ", " + customerID + ", " + key + ", " + flightNumber + ") failed--item is not available");
+                } else {
+//                    System.out.println("pass the condition");
+                    if (flightManager.reserveFlight(xid, customerID, flightNumber)) {
+                        int price = checkAvail;
+                        customer.reserve(key, flightNumber + "", price);
+                        writeData(xid, customer.getKey(), customer);
+                        Trace.info("Middleware::reserveItem(" + xid + ", " + customerID + ", " + key + ", " + flightNumber + ") succeeded");
+                        return true;
+                    }
+
+                    return false;
+                }
+            }
+        }
+        return false;
+
     }
 
     @Override
-    public boolean reserveCar(int id, int customerID, String location) throws RemoteException {
-        return carManager.reserveCar(id, customerID, location);
+    public boolean reserveCar(int xid, int customerID, String location) throws RemoteException {
+        String key = Car.getKey(location);
+
+        Trace.info("Middleware::reserveItem(" + xid + ", customer=" + customerID + ", " + key + ", " + location + ") called");
+        // Read customer object if it exists (and read lock it)
+        Customer customer = (Customer) readData(xid, Customer.getKey(customerID));
+
+        if (customer == null) {
+            Trace.warn("Middleware::reserveItem(" + xid + ", " + customerID + ", " + key + ", " + location + ")  failed--customer doesn't exist");
+            return false;
+        }
+
+        synchronized (customer) {
+            synchronized (carManager) {
+//                System.out.println("Middleware is sending a query to roomRM with key: " + key);
+                int checkAvail = carManager.checkForAvail(xid, key);
+
+                if (checkAvail == -1) {
+                    Trace.warn("RM::reserveItem(" + xid + ", " + customerID + ", " + key + ", " + location + ") failed--item is not available");
+                } else {
+//                    System.out.println("pass the condition");
+                    if (carManager.reserveCar(xid, customerID, location)) {
+                        int price = checkAvail;
+                        customer.reserve(key, location, price);
+                        writeData(xid, customer.getKey(), customer);
+                        Trace.info("Middleware::reserveItem(" + xid + ", " + customerID + ", " + key + ", " + location + ") succeeded");
+                        return true;
+                    }
+
+                    return false;
+                }
+            }
+        }
+        return false;
     }
 
     @Override
     public boolean reserveRoom(int xid, int customerID, String location) throws RemoteException {
-        System.out.println(super.queryRooms(xid, location));
+//        System.out.println(super.queryRooms(xid, location));
         String key = Room.getKey(location);
 
         Trace.info("Middleware::reserveItem(" + xid + ", customer=" + customerID + ", " + key + ", " + location + ") called");
@@ -215,15 +274,15 @@ public class Middleware extends ResourceManager {
 
         synchronized (customer) {
             synchronized (roomManager) {
-                System.out.println("Middleware is sending a query to roomRM with key: " + key);
-                boolean checkAvail = roomManager.checkForAvail(xid, key);
+//                System.out.println("Middleware is sending a query to roomRM with key: " + key);
+                int checkAvail = roomManager.checkForAvail(xid, key);
 
-                if (!checkAvail) {
+                if (checkAvail == -1) {
                     Trace.warn("RM::reserveItem(" + xid + ", " + customerID + ", " + key + ", " + location + ") failed--item is not available");
                 } else {
 //                    System.out.println("pass the condition");
                     if (roomManager.reserveRoom(xid, customerID, location)) {
-                        int price = roomManager.queryRoomsPrice(xid, key);
+                        int price = checkAvail;
                         customer.reserve(key, location, price);
                         writeData(xid, customer.getKey(), customer);
                         Trace.info("Middleware::reserveItem(" + xid + ", " + customerID + ", " + key + ", " + location + ") succeeded");
@@ -239,13 +298,13 @@ public class Middleware extends ResourceManager {
     }
 
     @Override
-    public boolean bundle(int id, int customerID, Vector<String> flightNumbers, String location, boolean car, boolean room) throws RemoteException {
-        Trace.info("Middleware::bundle(" + id + ", " + customerID + ", " + flightNumbers + ", " + location + ", " + car + ", " + room + ") called");
+    public boolean bundle(int xid, int customerID, Vector<String> flightNumbers, String location, boolean car, boolean room) throws RemoteException {
+        Trace.info("Middleware::bundle(" + xid + ", " + customerID + ", " + flightNumbers + ", " + location + ", " + car + ", " + room + ") called");
 
-        Customer customer = (Customer) readData(id, Customer.getKey(customerID));
+        Customer customer = (Customer) readData(xid, Customer.getKey(customerID));
 
         if (customer == null) {
-            Trace.warn("Middleware::bundle(" + id + ", " + customerID + ")  failed--customer doesn't exist");
+            Trace.warn("Middleware::bundle(" + xid + ", " + Customer.getKey(customerID) + ")  failed--customer doesn't exist");
             return false;
         }
 
@@ -253,23 +312,23 @@ public class Middleware extends ResourceManager {
 
         // Reserve all flights
         for (String flightNumber : flightNumbers) {
-            success &= flightManager.reserveFlight(id, customerID, Integer.parseInt(flightNumber));
+            success &= flightManager.reserveFlight(xid, customerID, Integer.parseInt(flightNumber));
         }
 
         // Reserve car if requested
         if (car) {
-            success &= carManager.reserveCar(id, customerID, location);
+            success &= carManager.reserveCar(xid, customerID, location);
         }
 
         // Reserve room if requested
         if (room) {
-            success &= roomManager.reserveRoom(id, customerID, location);
+            success &= roomManager.reserveRoom(xid, customerID, location);
         }
 
         if (!success) {
-            Trace.warn("Middleware::bundle(" + id + ", " + customerID + ", " + flightNumbers + ", " + location + ", " + car + ", " + room + ") failed");
+            Trace.warn("Middleware::bundle(" + xid + ", " + customerID + ", " + flightNumbers + ", " + location + ", " + car + ", " + room + ") failed");
         } else {
-            Trace.info("Middleware::bundle(" + id + ", " + customerID + ", " + flightNumbers + ", " + location + ", " + car + ", " + room + ") succeeded");
+            Trace.info("Middleware::bundle(" + xid + ", " + customerID + ", " + flightNumbers + ", " + location + ", " + car + ", " + room + ") succeeded");
         }
 
 

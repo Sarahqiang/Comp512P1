@@ -33,6 +33,7 @@ public class Customer extends RMItem {
         } else {
             reservedItem.setCount(reservedItem.getCount() + 1);
             // NOTE: latest price overrides existing price
+//            int new_price=
             reservedItem.setPrice(price);
         }
         m_reservations.put(reservedItem.getKey(), reservedItem);
@@ -46,7 +47,7 @@ public class Customer extends RMItem {
         String s = "Bill for customer " + m_ID + "\n";
         for (String key : m_reservations.keySet()) {
             ReservedItem item = (ReservedItem) m_reservations.get(key);
-            s += +item.getCount() + " " + item.getReservableItemKey() + " $" + item.getPrice() + "\n";
+            s += +item.getCount() + " " + item.getReservableItemKey() + " $" + item.getPrice() * item.getCount() + "\n";
         }
         return s;
     }

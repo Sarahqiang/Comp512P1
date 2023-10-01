@@ -208,5 +208,7 @@ public interface IResourceManager extends Remote {
     public String getName()
             throws RemoteException;
 
-    boolean checkForAvail(int xid, String key) throws RemoteException;
+    int checkForAvail(int xid, String key) throws RemoteException;
+
+    void cancelReservation(int xid, String key, int amount) throws RemoteException;
 }
