@@ -309,20 +309,54 @@ public class Middleware extends ResourceManager {
         }
 
         boolean success = true;
+        boolean check = true;
+
+        HashMap<String, Integer> avail_flight = new HashMap<>();
+        HashSet<String> not_avail_flight = new HashSet<>();
+        for (String flightNumber : flightNumbers) {
+            if (!avail_flight.containsKey(flightNumber)) {
+                avail_flight.put(flightNumber, this.queryFlight(xid, Integer.parseInt(flightNumber)));
+            }
+        }
+        for (String flightNumber : flightNumbers) {
+            int new_count = avail_flight.get(flightNumber) - 1;
+            avail_flight.put(flightNumber, new_count);
+            if (new_count < 0) {
+                not_avail_flight.add(flightNumber);
+                check = false;
+                Trace.info("Middleware::bundle(" + xid + ", " + flightNumber + ") failed--flight full");
+            }
+        }
+
+        if (this.queryRooms(xid, location) == 0) {
+            check = false;
+            Trace.info("Middleware::bundle(" + xid + ", " + location + ") failed--no more room avail");
+        }
+
+        if (this.queryCars(xid, location) == 0) {
+            check = false;
+            Trace.info("Middleware::bundle(" + xid + ", " + location + ") failed--no more car avail");
+        }
+
+        if (check == false) {
+            Trace.warn("Middleware::bundle(" + xid + ", " + customerID + ", " + flightNumbers + ", " + location + ", " + car + ", " + room + ") failed--not enough resource");
+            return false;
+        }
+
 
         // Reserve all flights
         for (String flightNumber : flightNumbers) {
-            success &= flightManager.reserveFlight(xid, customerID, Integer.parseInt(flightNumber));
+            success &= this.reserveFlight(xid, customerID, Integer.parseInt(flightNumber));
         }
 
         // Reserve car if requested
         if (car) {
-            success &= carManager.reserveCar(xid, customerID, location);
+            success &= this.reserveCar(xid, customerID, location);
         }
 
         // Reserve room if requested
         if (room) {
-            success &= roomManager.reserveRoom(xid, customerID, location);
+            success &= this.reserveRoom(xid, customerID, location);
         }
 
         if (!success) {
