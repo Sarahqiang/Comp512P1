@@ -343,20 +343,25 @@ public class Middleware extends ResourceManager {
             return false;
         }
 
+        synchronized (flightManager) {
+            // Reserve all flights
+            for (String flightNumber : flightNumbers) {
+                success &= this.reserveFlight(xid, customerID, Integer.parseInt(flightNumber));
+            }
 
-        // Reserve all flights
-        for (String flightNumber : flightNumbers) {
-            success &= this.reserveFlight(xid, customerID, Integer.parseInt(flightNumber));
-        }
+            synchronized (carManager) {
+                // Reserve car if requested
+                if (car) {
+                    success &= this.reserveCar(xid, customerID, location);
+                }
+            }
 
-        // Reserve car if requested
-        if (car) {
-            success &= this.reserveCar(xid, customerID, location);
-        }
-
-        // Reserve room if requested
-        if (room) {
-            success &= this.reserveRoom(xid, customerID, location);
+            synchronized (roomManager) {
+                // Reserve room if requested
+                if (room) {
+                    success &= this.reserveRoom(xid, customerID, location);
+                }
+            }
         }
 
         if (!success) {
